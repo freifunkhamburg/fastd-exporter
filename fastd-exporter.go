@@ -77,6 +77,7 @@ type PrometheusExporter struct {
 	txErrorPackets *prometheus.Desc
 	txErrorBytes   *prometheus.Desc
 
+	peersTotal *prometheus.Desc
 	peersUpTotal *prometheus.Desc
 
 	peerUp     *prometheus.Desc
@@ -126,6 +127,7 @@ func NewPrometheusExporter(ifName string, sockName string) PrometheusExporter {
 		txErrorPackets:   prometheus.NewDesc(c("tx_error_packets"), "tx error packets count", nil, l),
 		txErrorBytes:     prometheus.NewDesc(c("tx_error_bytes"), "tx error bytes count", nil, l),
 
+		peersTotal: prometheus.NewDesc(c("peers_total"), "number of peers", nil, l),
 		peersUpTotal: prometheus.NewDesc(c("peers_up_total"), "number of connected peers", nil, l),
 
 		// per peer metrics
@@ -160,6 +162,7 @@ func (e PrometheusExporter) Describe(c chan<- *prometheus.Desc) {
 	c <- e.txDroppedPackets
 	c <- e.txDroppedBytes
 
+	c <- e.peersTotal
 	c <- e.peersUpTotal
 
 	c <- e.peerUp
@@ -199,9 +202,11 @@ func (e PrometheusExporter) Collect(c chan<- prometheus.Metric) {
 	c <- prometheus.MustNewConstMetric(e.txDroppedPackets, prometheus.CounterValue, float64(data.Statistics.TX.Count))
 	c <- prometheus.MustNewConstMetric(e.txDroppedBytes, prometheus.CounterValue, float64(data.Statistics.TX_Dropped.Bytes))
 
+	peersTotal := 0
 	peersUpTotal := 0
 
 	for publicKey, peer := range data.Peers {
+		peersTotal += 1
 		if peer.Connection != nil {
 			peersUpTotal += 1
 		}
@@ -228,6 +233,7 @@ func (e PrometheusExporter) Collect(c chan<- prometheus.Metric) {
 		}
 	}
 
+	c <- prometheus.MustNewConstMetric(e.peersTotal, prometheus.GaugeValue, float64(peersTotal))
 	c <- prometheus.MustNewConstMetric(e.peersUpTotal, prometheus.GaugeValue, float64(peersUpTotal))
 }
 
